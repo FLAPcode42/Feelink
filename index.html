@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>FLAP — Offline-first Social WebApp (Single File)</title>
+  <style>
+    :root{
+      --bg:#0b0f12; --card:#0f1720; --muted:#9aa5b1; --accent:#6ee7b7; --glass: rgba(255,255,255,0.03);
+      --glass-2: rgba(255,255,255,0.02);
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto, "Helvetica Neue",Arial; background:linear-gradient(180deg,#071018 0%, #08131a 100%); color:#e6eef3; height:100vh; display:flex;}
+
+    /* Sidebar */
+    .sidebar{width:260px;padding:18px;border-right:1px solid rgba(255,255,255,0.03);background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);display:flex;flex-direction:column;gap:12px}
+    .brand{font-weight:700;font-size:20px;letter-spacing:0.6px;display:flex;align-items:center;gap:10px}
+    .logo{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#4dd0e1);display:flex;align-items:center;justify-content:center;color:#062022;font-weight:700}
+    .muted{color:var(--muted);font-size:13px}
+    .btn{background:var(--glass);padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.02);cursor:pointer}
+
+    /* Main */
+    .main{flex:1;display:flex;flex-direction:column;height:100vh}
+    header{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid rgba(255,255,255,0.02);backdrop-filter: blur(6px)}
+    .search{flex:1;margin:0 20px}
+    .search input{width:100%;padding:10px;border-radius:12px;background:var(--glass-2);border:1px solid rgba(255,255,255,0.02);color:inherit}
+
+    .layout{display:flex;gap:18px;padding:18px;flex:1;overflow:hidden}
+    .left{width:320px;display:flex;flex-direction:column;gap:12px}
+    .feed{flex:1;overflow:auto;padding-right:6px}
+    .right{width:320px}
+
+    /* Composer */
+    .composer{background:var(--card);padding:12px;border-radius:14px;border:1px solid rgba(255,255,255,0.03);margin-bottom:12px}
+    .composer textarea{width:100%;min-height:64px;background:transparent;border:none;color:inherit;resize:vertical}
+    .composer .row{display:flex;gap:8px;align-items:center}
+    .file-preview{max-height:260px;border-radius:10px;overflow:hidden;margin-top:8px}
+    .small{font-size:13px;color:var(--muted)}
+
+    /* Post card */
+    .post{background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent);padding:12px;border-radius:14px;margin-bottom:12px;border:1px solid rgba(255,255,255,0.02)}
+    .post-head{display:flex;gap:10px;align-items:center}
+    .avatar{width:44px;height:44px;border-radius:10px;background:var(--glass);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--muted)}
+    .meta{flex:1}
+    .meta .name{font-weight:700}
+    .meta .small{font-size:12px}
+    .post-body{margin-top:10px}
+    .post-video{width:100%;border-radius:10px;max-height:360px;background:#000;display:flex;align-items:center;justify-content:center}
+
+    /* Reactions */
+    .reactions{display:flex;gap:8px;margin-top:10px}
+    .reaction{padding:8px 10px;border-radius:999px;background:var(--glass);border:1px solid rgba(255,255,255,0.02);cursor:pointer;display:flex;gap:8px;align-items:center}
+
+    /* Groups */
+    .group-list{background:var(--card);padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,0.02);}
+    .group{display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;cursor:pointer}
+    .group.active{background:linear-gradient(90deg, rgba(110,231,183,0.06), rgba(77,208,225,0.02))}
+
+    /* Responsive */
+    @media (max-width:900px){.sidebar{display:none}.left{display:none}.right{display:none}.layout{padding:8px}.main{height:100vh}}
+
+    /* Tiny helpers */
+    .muted-2{color:#7f8b93;font-size:12px}
+    .center{display:flex;align-items:center;justify-content:center}
+    .ghost{background:transparent;border:1px dashed rgba(255,255,255,0.02);padding:8px;border-radius:8px}
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <div class="brand"><div class="logo">FL</div>FLAP</div>
+    <div class="small muted">Offline-friendly social feed — lokal im Browser</div>
+    <div class="btn" id="open-login">Account / Switch</div>
+    <div class="btn" id="create-group">Neue Gruppe</div>
+    <div style="flex:1"></div>
+    <div class="muted small">Deploy: GitHub Pages • Vercel • Netlify</div>
+  </div>
+
+  <div class="main">
+    <header>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="brand"><div class="logo">FL</div>FLAP</div>
+        <div class="search"><input id="search" placeholder="Search posts, users, groups..." /></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="small muted" id="status">Offline-ready</div>
+        <div class="btn" id="new-post-btn">Neuer Post</div>
+      </div>
+    </header>
+
+    <div class="layout">
+      <div class="left">
+        <div class="group-list" id="groupList">
+          <div class="small muted">Gruppen</div>
+          <div id="groups"></div>
+        </div>
+
+        <div class="ghost center" style="height:120px;margin-top:12px;flex-direction:column;gap:8px">
+          <div class="small">Pro-Tipp</div>
+          <div class="muted-2 small">Lade Videos als MP4 hoch — sie werden als Data-URL im Browser gespeichert.</div>
+        </div>
+      </div>
+
+      <div class="feed" id="feed">
+        <div class="composer" id="composer" style="display:none">
+          <div class="row"><textarea id="postText" placeholder="Was liegt an? (Text, Video)" maxlength="1000"></textarea></div>
+          <div class="row" style="justify-content:space-between;align-items:center;margin-top:8px">
+            <div style="display:flex;gap:8px;align-items:center">
+              <label class="btn" for="videoInput">Video hochladen</label>
+              <input id="videoInput" type="file" accept="video/*" style="display:none" />
+              <select id="groupSelect"></select>
+            </div>
+            <div style="display:flex;gap:8px">
+              <div class="small muted">Max 8MB empfohlen</div>
+              <div class="btn" id="postSubmit">Posten</div>
+            </div>
+          </div>
+          <div id="preview" class="file-preview"></div>
+        </div>
+
+        <div id="feedInner"></div>
+        <div id="loadingMore" class="center small muted" style="padding:12px">-- Ende des Feeds --</div>
+      </div>
+
+      <div class="right">
+        <div class="post" style="margin-bottom:12px">
+          <div class="small muted">Deine Account-Box</div>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+            <div class="avatar" id="myAvatar">ME</div>
+            <div>
+              <div id="myName" class="name">Gast</div>
+              <div class="muted small" id="myEmail">nicht angemeldet</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="post">
+          <div class="small muted">Schnellaktionen</div>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+            <div class="btn" id="openGroups">Alle Gruppen</div>
+            <div class="btn" id="exportData">Export JSON</div>
+            <div class="btn" id="importData">Import JSON</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modals (simple) -->
+  <div id="modal" style="position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);z-index:1000">
+    <div style="width:720px;max-width:94%;background:linear-gradient(180deg,#071018,#071116);padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,0.03)">
+      <div id="modalContent"></div>
+      <div style="display:flex;justify-content:flex-end;margin-top:12px">
+        <div class="btn" id="modalClose">Schließen</div>
+      </div>
+    </div>
+  </div>
+
+  <input id="hiddenFile" type="file" style="display:none" />
+
+<script>
+// FLAP Single-file App - LocalStorage data model
+// data.users: {id, name, passHash}
+// data.currentUser: userId
+// data.groups: {id, name}
+// data.posts: [{id, authorId, text, videoDataURL, timestamp, groupId, reactions: {like:[],heart:[],laugh:[]}}]
+
+const DBKEY = 'flap_db_v1';
+let DB = null;
+
+function loadDB(){
+  const raw = localStorage.getItem(DBKEY);
+  if(raw) return JSON.parse(raw);
+  const seed = {users:[], currentUser:null, groups:[{id:'g_public',name:'Öffentlich'}], posts:[]};
+  localStorage.setItem(DBKEY, JSON.stringify(seed));
+  return seed;
+}
+
+function saveDB(){ localStorage.setItem(DBKEY, JSON.stringify(DB)); }
+
+function uid(prefix='id'){return prefix+Math.random().toString(36).slice(2,9)}
+
+// --- Init ---
+DB = loadDB();
+
+// Quick guest user
+function ensureGuest(){
+  if(DB.currentUser) return;
+  let guest = DB.users.find(u=>u.name==='Gast'&&u.isGuest);
+  if(!guest){ guest = {id:uid('u_'), name:'Gast', passHash:null, isGuest:true}; DB.users.push(guest); DB.currentUser = guest.id; saveDB(); }
+}
+ensureGuest();
+
+// UI refs
+const feedInner = document.getElementById('feedInner');
+const groupsEl = document.getElementById('groups');
+const groupSelect = document.getElementById('groupSelect');
+const feed = document.getElementById('feed');
+const modal = document.getElementById('modal');
+const modalContent = document.getElementById('modalContent');
+const modalClose = document.getElementById('modalClose');
+const composer = document.getElementById('composer');
+const newPostBtn = document.getElementById('new-post-btn');
+const postSubmit = document.getElementById('postSubmit');
+const postText = document.getElementById('postText');
+const videoInput = document.getElementById('videoInput');
+const preview = document.getElementById('preview');
+const searchInput = document.getElementById('search');
+const status = document.getElementById('status');
+
+// Render helpers
+function renderGroups(){
+  groupsEl.innerHTML=''; groupSelect.innerHTML='';
+  DB.groups.forEach(g=>{
+    const div = document.createElement('div'); div.className='group'; div.dataset.id=g.id; div.innerHTML=`<div style='width:36px;height:36px;border-radius:8px;background:linear-gradient(90deg,var(--accent),#4dd0e1);display:flex;align-items:center;justify-content:center;color:#062022;font-weight:700'>${g.name[0]||'G'}</div><div><div style='font-weight:700'>${g.name}</div><div class='small muted'>${DB.posts.filter(p=>p.groupId===g.id).length} Posts</div></div>`;
+    div.onclick=()=>{ selectGroup(g.id); }
+    groupsEl.appendChild(div);
+
+    const opt = document.createElement('option'); opt.value = g.id; opt.textContent = g.name; groupSelect.appendChild(opt);
+  });
+}
+
+let activeGroup = 'g_public';
+function selectGroup(id){ activeGroup=id; const nodes = groupsEl.querySelectorAll('.group'); nodes.forEach(n=>n.classList.toggle('active', n.dataset.id===id)); loadFeed(true); }
+
+// Posts batching for scroll
+let BATCH = 6; let offset = 0; let lastFilter='';
+function loadFeed(reset=false){
+  if(reset){ feedInner.innerHTML=''; offset=0; }
+  const q = (searchInput.value||'').toLowerCase(); lastFilter=q;
+  let posts = DB.posts.slice().sort((a,b)=>b.timestamp-a.timestamp);
+  if(activeGroup) posts = posts.filter(p=>p.groupId===activeGroup);
+  if(q) posts = posts.filter(p=> (p.text||'').toLowerCase().includes(q) || (getUser(p.authorId).name||'').toLowerCase().includes(q));
+  const slice = posts.slice(offset, offset+BATCH);
+  slice.forEach(p=>{ feedInner.appendChild(renderPost(p)); });
+  offset += slice.length;
+  document.getElementById('loadingMore').textContent = offset<posts.length ? 'Scroll für mehr...' : '-- Ende des Feeds --';
+}
+
+function renderPost(p){
+  const div = document.createElement('div'); div.className='post';
+  div.innerHTML = `
+    <div class='post-head'>
+      <div class='avatar'>${(getUser(p.authorId).name||'U')[0]||'U'}</div>
+      <div class='meta'>
+        <div class='name'>${escapeHtml(getUser(p.authorId).name||'Unbekannt')}</div>
+        <div class='small muted'>${new Date(p.timestamp).toLocaleString()} · ${getGroupName(p.groupId)}</div>
+      </div>
+      <div style='min-width:40px;text-align:right'><div class='small muted'>ID:${p.id.slice(-4)}</div></div>
+    </div>
+    <div class='post-body'>
+      <div>${escapeHtml(p.text||'')}</div>
+      ${p.videoDataURL ? `<div class='post-video' data-pid='${p.id}'><video playsinline controls preload='metadata' src='${p.videoDataURL}' style='width:100%;height:100%;object-fit:cover;border-radius:10px'></video></div>` : ''}
+      <div class='reactions' data-pid='${p.id}'>
+        ${reactionHtml('like', p)}
+        ${reactionHtml('heart', p)}
+        ${reactionHtml('laugh', p)}
+        <div style='margin-left:auto' class='muted small'>${p.views||0} views</div>
+      </div>
+    </div>
+  `;
+  // attach reaction handlers
+  setTimeout(()=>{
+    const reacts = div.querySelectorAll('.reaction');
+    reacts.forEach(r=>{ r.onclick = ()=>{ toggleReaction(p.id, r.dataset.type); renderReplacePost(p.id, div); }; });
+  },0);
+  return div;
+}
+
+function reactionHtml(type, p){ const cnt = (p.reactions && p.reactions[type]) ? p.reactions[type].length : 0; return `<div class='reaction' data-type='${type}'>${emojiFor(type)} <div class='small muted' style='margin-left:6px'>${cnt}</div></div>` }
+function emojiFor(t){ return {'like':'👍','heart':'💚','laugh':'😂'}[t]||'•' }
+
+function renderReplacePost(pid, oldDiv){
+  const p = DB.posts.find(x=>x.id===pid); if(!p) return;
+  const newDiv = renderPost(p);
+  oldDiv.replaceWith(newDiv);
+}
+
+// Reactions
+function toggleReaction(pid, type){
+  const u = DB.currentUser; if(!u) return alert('Bitte erst anmelden');
+  const post = DB.posts.find(x=>x.id===pid); if(!post) return;
+  post.reactions = post.reactions || {like:[],heart:[],laugh:[]};
+  const arr = post.reactions[type] || (post.reactions[type]=[]);
+  const idx = arr.indexOf(u);
+  if(idx===-1) arr.push(u); else arr.splice(idx,1);
+  saveDB();
+}
+
+// Utilities
+function getUser(id){ return DB.users.find(u=>u.id===id) || {name:'Unbekannt'} }
+function getGroupName(id){ return (DB.groups.find(g=>g.id===id)||{name:'Öffentlich'}).name }
+function escapeHtml(s){ return String(s||'').replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+
+// Posting
+videoInput.onchange = async (e)=>{
+  const f = e.target.files[0]; if(!f) return; if(f.size>12*1024*1024) return alert('Datei zu groß - bitte <12 MB');
+  preview.innerHTML = '<div class="small muted">Lädt Vorschau...</div>';
+  const data = await fileToDataURL(f);
+  preview.innerHTML = `<video controls src='${data}' style='width:100%;max-height:280px;border-radius:8px'></video>`;
+  preview.dataset.video = data;
+}
+
+postSubmit.onclick = ()=>{
+  const text = postText.value.trim();
+  const video = preview.dataset.video || null;
+  if(!text && !video) return alert('Post braucht Text oder Video');
+  const post = {id:uid('p_'), authorId:DB.currentUser, text, videoDataURL:video, timestamp:Date.now(), groupId: groupSelect.value || 'g_public', reactions:{like:[],heart:[],laugh:[]}, views:0};
+  DB.posts.push(post); saveDB();
+  postText.value=''; preview.innerHTML=''; delete preview.dataset.video; composer.style.display='none'; loadFeed(true);
+}
+
+function fileToDataURL(f){return new Promise((res,rej)=>{const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(f); }); }
+
+// Simple auth modal
+function openLogin(){
+  modalContent.innerHTML = `
+    <h3>Account</h3>
+    <div style='display:flex;gap:8px;margin-top:8px'>
+      <input id='accName' placeholder='Username' style='flex:1;padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03);color:inherit' />
+      <input id='accPass' placeholder='Passwort (optional)' style='flex:1;padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03);color:inherit' />
+    </div>
+    <div style='display:flex;gap:8px;margin-top:8px'>
+      <div class='btn' id='createAcc'>Erstellen</div>
+      <div class='btn' id='loginAcc'>Login</div>
+      <div class='btn' id='logoutAcc'>Logout</div>
+    </div>
+    <div style='margin-top:8px' class='small muted'>Achtung: Accounts bleiben lokal im Browser.</div>
+  `;
+  modal.style.display='flex';
+  document.getElementById('createAcc').onclick = ()=>{
+    const n = document.getElementById('accName').value.trim(); const p = document.getElementById('accPass').value;
+    if(!n) return alert('Gib einen Namen an');
+    if(DB.users.find(u=>u.name===n)) return alert('Name bereits vergeben');
+    const u = {id:uid('u_'), name:n, passHash: p? btoa(p) : null}; DB.users.push(u); DB.currentUser = u.id; saveDB(); updateAccountBox(); renderGroups(); modal.style.display='none'; loadFeed(true);
+  }
+  document.getElementById('loginAcc').onclick = ()=>{
+    const n = document.getElementById('accName').value.trim(); const p = document.getElementById('accPass').value;
+    const u = DB.users.find(u=>u.name===n && (u.passHash===null || u.passHash===btoa(p)));
+    if(!u) return alert('Login fehlgeschlagen'); DB.currentUser = u.id; saveDB(); updateAccountBox(); modal.style.display='none'; loadFeed(true);
+  }
+  document.getElementById('logoutAcc').onclick = ()=>{ DB.currentUser = null; saveDB(); ensureGuest(); updateAccountBox(); modal.style.display='none'; loadFeed(true); }
+}
+
+function updateAccountBox(){
+  const me = getUser(DB.currentUser);
+  document.getElementById('myName').textContent = me.name||'Gast';
+  document.getElementById('myEmail').textContent = me.isGuest? 'lokaler Gast' : 'lokaler Account';
+  document.getElementById('myAvatar').textContent = (me.name||'G')[0];
+}
+
+// Groups modal & create
+function openGroupsModal(){
+  modalContent.innerHTML = `<h3>Gruppen verwalten</h3><div id='groupMgmt'></div><div style='margin-top:12px;display:flex;gap:8px'><input id='newGroupName' placeholder='Neue Gruppe' style='flex:1;padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03);color:inherit' /><div class='btn' id='createGroupBtn'>Erstellen</div></div>`;
+  renderGroupMgmt(); modal.style.display='flex';
+  document.getElementById('createGroupBtn').onclick = ()=>{ const name=document.getElementById('newGroupName').value.trim(); if(!name) return; DB.groups.push({id:uid('g_'), name}); saveDB(); renderGroups(); renderGroupMgmt(); }
+}
+function renderGroupMgmt(){
+  const el = document.getElementById('groupMgmt'); el.innerHTML=''; DB.groups.forEach(g=>{ const d=document.createElement('div'); d.style.display='flex'; d.style.justifyContent='space-between'; d.style.padding='8px'; d.style.borderBottom='1px solid rgba(255,255,255,0.02)'; d.innerHTML = `<div>${g.name}</div><div style='display:flex;gap:8px'><div class='btn' data-id='${g.id}' data-act='rename'>Rename</div><div class='btn' data-id='${g.id}' data-act='del'>Delete</div></div>`; el.appendChild(d); });
+  el.querySelectorAll('[data-act]').forEach(btn=>btn.onclick=()=>{
+    const id = btn.dataset.id; const act = btn.dataset.act;
+    if(act==='del'){ if(id==='g_public') return alert('Öffentlich kann nicht gelöscht werden'); DB.groups = DB.groups.filter(x=>x.id!==id); DB.posts.forEach(p=>{ if(p.groupId===id) p.groupId='g_public'}); saveDB(); renderGroups(); renderGroupMgmt(); }
+    if(act==='rename'){ const name = prompt('Neuer Gruppenname'); if(!name) return; DB.groups.find(x=>x.id===id).name=name; saveDB(); renderGroups(); renderGroupMgmt(); }
+  });
+}
+
+// Export / import
+document.getElementById('exportData').onclick = ()=>{ const a=document.createElement('a'); a.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(DB)); a.download='flap_export.json'; a.click(); }
+
+document.getElementById('importData').onclick = ()=>{ const f = document.createElement('input'); f.type='file'; f.accept='application/json'; f.onchange=async (e)=>{ const file = e.target.files[0]; if(!file) return; const txt = await file.text(); try{ DB = JSON.parse(txt); saveDB(); renderGroups(); updateAccountBox(); loadFeed(true); alert('Importiert'); }catch(err){ alert('Fehler beim Import'); } }; f.click(); }
+
+// Minimal search and scroll handling
+searchInput.oninput = ()=>{ loadFeed(true); }
+feed.addEventListener('scroll', ()=>{ const atBottom = feed.scrollTop + feed.clientHeight >= feed.scrollHeight - 60; if(atBottom) loadFeed(false); });
+
+// Buttons
+document.getElementById('open-login').onclick = openLogin;
+document.getElementById('create-group').onclick = ()=>{ document.getElementById('newGroupName') ? null : null; openGroupsModal(); };
+newPostBtn.onclick = ()=>{ composer.style.display = composer.style.display==='none' ? 'block' : 'none'; }
+modalClose.onclick = ()=>{ modal.style.display='none'; }
+
+// initial render
+renderGroups(); updateAccountBox(); loadFeed(true);
+
+// tiny helpers: render on video play count view++
+feedInner.addEventListener('play', (e)=>{ const v = e.target; if(v.tagName.toLowerCase()!=='video') return; const pdiv = v.closest('.post'); if(!pdiv) return; const pid = pdiv.querySelector('.reactions').dataset.pid; const post = DB.posts.find(x=>x.id===pid); if(post){ post.views = (post.views||0) + 1; saveDB(); } }, true);
+
+// small UX: keyboard shortcut N to toggle composer
+window.addEventListener('keydown', (e)=>{ if(e.key==='n' && !e.metaKey && !e.ctrlKey) { composer.style.display = composer.style.display==='none' ? 'block' : 'none'; } });
+
+// Simple crash guard: if localStorage full, notify
+window.addEventListener('error', (e)=>{ console.error(e); alert('Fehler: '+e.message); });
+
+// Quick hint deploy: save this file as "index.html" and push to GitHub Pages or drag to Vercel/Netlify
+
+</script>
+</body>
+</html>
